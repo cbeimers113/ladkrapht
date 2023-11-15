@@ -1,0 +1,40 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Deploys the infrastructure to run the Minecraft server
+
+Parameters:
+  InstanceAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/al2023-ami-minimal-kernel-default-x86_64'
+
+Resources:
+  LadKraphtInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      KeyName: "ladkrapht-login"
+      ImageId: !Ref InstanceAmiId
+      InstanceType: m5.large
+      SecurityGroupIds:
+        - !Ref LadKraphtSecurityGroup
+      Tags:
+        - Key: "name"
+          Value: "ladkrapht-ec2"
+
+  LadKraphtSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Join ["-", [ladkrapht-security-group, dev]]
+      GroupDescription: "Allow HTTP/HTTPS and SSH inbound and outbound traffic"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 25565
+          ToPort: 25565
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 25575
+          ToPort: 25575
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+

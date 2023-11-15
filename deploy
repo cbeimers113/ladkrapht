@@ -1,0 +1,47 @@
+#!/bin/bash
+
+touch .running
+
+# Provision the CloudFormation stack
+./log "Deploying"
+aws cloudformation create-stack --stack-name ladkrapht-cfm --template-body file://ladkrapht.yml
+
+# Wait for stack to create
+status="offline"
+while [ "$status" != "CREATE_COMPLETE" ]; do
+    status=$(aws cloudformation describe-stacks --stack-name ladkrapht-cfm --query "Stacks[0].StackStatus" | tr -d '"')
+done
+
+# Get the EC2 instance's public IP address
+./log "Getting IP"
+IP_ADDR=$(aws ec2 describe-instances | jq '.Reservations[].Instances[] | select(contains({Tags: [{Key: "name"}, {Value: "ladkrapht-ec2"}]}))' | jq '.PublicIpAddress' | grep -P "\d+.\d+.\d+.\d+" | tr -d '"')
+
+# Wait for EC2 to be reachable
+./log "Waiting for EC2"
+ready="no"
+while [ "$ready" != "ok" ]; do
+    ready=$(ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=no -i ./ladkrapht-login.pem "ec2-user@$IP_ADDR" echo ok 2>&1)
+done
+
+# Install dependencies
+./log "Getting Java"
+ssh -i ./ladkrapht-login.pem -o StrictHostKeyChecking=no "ec2-user@$IP_ADDR" "sudo yum install -y java-1.8.0 wget zip unzip"
+
+./log "Getting mods"
+ssh -i ./ladkrapht-login.pem -o StrictHostKeyChecking=no "ec2-user@$IP_ADDR" "wget -O server.zip 'https://tekxit.lol/downloads/tekxit3.14/1.0.961TekxitPiServer.zip'"
+ssh -i ./ladkrapht-login.pem -o StrictHostKeyChecking=no "ec2-user@$IP_ADDR" "unzip server.zip && rm server.zip"
+ssh -i ./ladkrapht-login.pem -o StrictHostKeyChecking=no "ec2-user@$IP_ADDR" "mv 1.0.961TekxitPiServer server"
+
+# Upload world files
+./log "Uploading world"
+scp -i ./ladkrapht-login.pem -o StrictHostKeyChecking=no -r ./backup.zip "ec2-user@$IP_ADDR:~/"
+ssh -i ./ladkrapht-login.pem -o StrictHostKeyChecking=no "ec2-user@$IP_ADDR" "unzip -o backup.zip && rm backup.zip"
+
+# Start server
+./log "Starting server"
+ssh -i ./ladkrapht-login.pem -o StrictHostKeyChecking=no "ec2-user@$IP_ADDR" "cd server && ./ServerLinux.sh" &
+
+# Give server some time to boot up then report the IP address
+sleep 360
+echo "$IP_ADDR" > .ip
+rm .status  # Lets the Discord bot take over status reporting with MC server status

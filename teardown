@@ -1,0 +1,18 @@
+#!/bin/bash
+
+touch .stopping
+
+./cmd stop
+./backup
+./log "Tearing down"
+aws cloudformation delete-stack --stack-name ladkrapht-cfm
+
+# Remove signal files
+[ -f .status ] && rm .status
+[ -f .ip ] && rm .ip
+[ -f .running ] && rm .running
+[ -f .stopping ] && rm .stopping
+[ -f .ex ] && rm .ex
+
+# Reboot so that the bot has a clean state
+sudo reboot now

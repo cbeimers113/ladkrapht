@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# Log status to the console and to a status file so the bot can update the status on Discord
+[ "$#" -gt 0 ] && echo "$1" && echo "$1" > .status
+
+

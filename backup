@@ -1,0 +1,11 @@
+#!/bin/bash
+
+touch .backup
+
+./log "Backing up world"
+IP_ADDR=$(cat .ip)
+ssh -i ./ladkrapht-login.pem -o StrictHostKeyChecking=no "ec2-user@$IP_ADDR" "[ -f backup.zip ] && rm backup.zip; zip -r backup.zip server -x *.log.gz *.jar"
+sudo scp -i ./ladkrapht-login.pem -o StrictHostKeyChecking=no "ec2-user@$IP_ADDR:~/backup.zip" ./
+
+[ -f .backup ] && rm .backup
+[ -f .status ] && rm .status
